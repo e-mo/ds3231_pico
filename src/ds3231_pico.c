@@ -118,29 +118,60 @@ bool ds3231_datetime_set(ds3231_inst_t *inst, ds3231_datetime_t *dt) {
 	return true;
 }
 
-bool ds3231_alarm1_set(ds3231_inst_t inst, ds3231_datetime_t dt, alarm1_mode_t mode) {
+bool ds3231_alarm1_set(ds3231_inst_t *inst, ds3231_datetime_t *dt, alarm1_mode_t mode) {
 	if (inst == NULL) return false;
 
-	uint8_t data[8] = {0x07, 0x00};
+	// data[0] = first alarm reg
+	uint8_t data[5] = {DS3231_REG_ALARM1_SECS, 0x00};
 
-	if (mode & 0x01) data[1] |= 0x80;
-	data[1] |= (dt->seconds % 10) | ((dt->seconds / 10) << 4);
+	if (mode & 0x01) data[1] = 0x80;
+	if (mode & 0x02) data[2] = 0x80;
+	if (mode & 0x04) data[3] = 0x80;
+	if (mode & 0x08) data[4] = 0x80;
 
-	if (mode & 0x02) data[2] |= 0x80;
+	// DAY mode set
+	if (mode & 0x10) data[4] |= 0x40;
+
+	switch (mode) {
+	case ALARM1_MATCH_DHMS_DATE:
+	case ALARM1_MATCH_DHMS_DAY:
+		if (mode & 0x10)
+			data[4] |= dt->day;
+		else
+			data[4] |= (dt->date % 10) | ((dt->date / 10) << 4);
+
+	case ALARM1_MATCH_HMS:
+		if (dt->hour_mode) {
+			data[3] |= 0x40;
+			if (dt->post_meridiem) data[3] |= 0x20;
+		}
+
+		data[3] |= (dt->hours % 10) | ((dt->hours / 10) << 4);
+
+	case ALARM1_MATCH_MS:
+		data[2] |= (dt->minutes % 10) | ((dt->minutes / 10) << 4);
+
+	case ALARM1_MATCH_S:
+		data[1] |= (dt->seconds % 10) | ((dt->seconds / 10) << 4);
+	}
+
+	int rval = i2c_write_blocking(inst->i2c, DS3231_I2C_ADDRESS, data, 5, false);
+	if (rval == PICO_ERROR_GENERIC) return false;
+
+	return true;
+}
+
+bool ds3231_alarm2_set(ds3231_inst_t *inst, ds3231_datetime_t *dt, alarm2_mode_t mode) {
+	if (inst == NULL) return false;
 
 }
 
-bool ds3231_alarm2_set(ds3231_inst_t inst, ds3231_datetime_t dt, alarm2_mode_t mode) {
+bool ds3231_alarm_enable(ds3231_inst_t *inst, uint alarm) {
 	if (inst == NULL) return false;
 
 }
 
-bool ds3231_alarm_enable(ds3231_inst_t inst, uint alarm) {
-	if (inst == NULL) return false;
-
-}
-
-bool ds3231_alarm_disable(ds3231_inst_t inst, uint alarm) {
+bool ds3231_alarm_disable(ds3231_inst_t *inst, uint alarm) {
 	if (inst == NULL) return false;
 
 }
