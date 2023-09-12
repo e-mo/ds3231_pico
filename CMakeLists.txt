@@ -28,11 +28,11 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(ds3231 
-	src/ds3231.c
+	src/ds3231_pico.c
 )
 
 #pico_enable_stdio_uart(ds3231 1)
-#pico_enable_stdio_usb(ds3231 0)
+pico_enable_stdio_usb(ds3231 1)
 
 # Add the standard library to the build
 target_link_libraries(ds3231
@@ -59,7 +59,6 @@ target_include_directories(ds3231 PRIVATE
 # Add any user requested libraries
 target_link_libraries(ds3231
 	hardware_i2c
-	hardware_uart
 	hardware_sleep
 )
 
