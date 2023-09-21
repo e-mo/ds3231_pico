@@ -21,6 +21,10 @@
 #define I2C_SDA_PIN 8
 #define I2C_SCL_PIN 9
 
+// Single register read logic
+static bool _ds3231_read_register(ds3231_inst_t *inst, uint8_t *reg, uint8_t *data);
+void gpio_event_string(char *buf, uint32_t events);
+
 struct ds3231_inst {
 	i2c_inst_t *i2c;
 };
@@ -75,16 +79,6 @@ bool ds3231_datetime_get(ds3231_inst_t *inst, ds3231_datetime_t *dt) {
 	dt->month = (data[5] & 0x0F) + ((data[5] >> 4) & 0x01) * 10;
 
 	dt->year = (data[6] & 0x0F) + ((data[6] >> 4) & 0x01) * 10;
-
-	printf("secs: %u\n", dt->seconds);
-	printf("mins: %u\n", dt->minutes);
-	printf("mode: %s\n", dt->hour_mode ? "24" : "12");
-	printf("hours: %u\n", dt->hours);
-	printf("day: %u\n", dt->day);
-	printf("date: %u\n", dt->date);
-	printf("century: %u\n", dt->century);
-	printf("month: %u\n", dt->month);
-	printf("year: %u\n", dt->year);
 
 	return true;
 }
@@ -164,16 +158,133 @@ bool ds3231_alarm1_set(ds3231_inst_t *inst, ds3231_datetime_t *dt, alarm1_mode_t
 bool ds3231_alarm2_set(ds3231_inst_t *inst, ds3231_datetime_t *dt, alarm2_mode_t mode) {
 	if (inst == NULL) return false;
 
+	// data[0] = first alarm reg
+	uint8_t data[4] = {DS3231_REG_ALARM2_MINS, 0x00};
+
+	if (mode & 0x01) data[1] = 0x80;
+	if (mode & 0x02) data[2] = 0x80;
+	if (mode & 0x04) data[3] = 0x80;
+
+	// DAY mode set
+	if (mode & 0x08) data[3] |= 0x40;
+
+	switch (mode) {
+	case ALARM2_MATCH_DHM_DATE:
+	case ALARM2_MATCH_DHM_DAY:
+		if (mode & 0x08)
+			data[3] |= dt->day;
+		else
+			data[3] |= (dt->date % 10) | ((dt->date / 10) << 4);
+
+	case ALARM2_MATCH_HM:
+		if (dt->hour_mode) {
+			data[2] |= 0x40;
+			if (dt->post_meridiem) data[2] |= 0x20;
+		}
+
+		data[2] |= (dt->hours % 10) | ((dt->hours / 10) << 4);
+
+	case ALARM2_MATCH_M:
+		data[1] |= (dt->minutes % 10) | ((dt->minutes / 10) << 4);
+	}
+
+	int rval = i2c_write_blocking(inst->i2c, DS3231_I2C_ADDRESS, data, 4, false);
+	if (rval == PICO_ERROR_GENERIC) return false;
+
+	return true;
 }
 
-bool ds3231_alarm_enable(ds3231_inst_t *inst, uint alarm) {
+bool ds3231_alarm_irq_enable(ds3231_inst_t *inst, uint alarm) {
 	if (inst == NULL) return false;
+	if (alarm != 1 && alarm != 2) return false;
 
+	uint8_t data[2] = {DS3231_REG_CTRL, 0x00};
+
+	if (!_ds3231_read_register(inst, &data[0], &data[1]))
+		return false;
+
+	data[1] |= alarm;
+
+	int rval = i2c_write_blocking(inst->i2c, DS3231_I2C_ADDRESS, data, 2, false);
+	if (rval == PICO_ERROR_GENERIC) return false;
+
+	return true;
 }
 
-bool ds3231_alarm_disable(ds3231_inst_t *inst, uint alarm) {
+bool ds3231_alarm_irq_disable(ds3231_inst_t *inst, uint alarm) {
 	if (inst == NULL) return false;
+	if (alarm != 1 && alarm != 2) return false;
 
+	uint8_t data[2] = {DS3231_REG_CTRL, 0x00};
+
+	if (!_ds3231_read_register(inst, &data[0], &data[1]))
+		return false;
+
+	data[1] &= ~alarm;
+
+	int rval = i2c_write_blocking(inst->i2c, DS3231_I2C_ADDRESS, data, 2, false);
+	if (rval == PICO_ERROR_GENERIC) return false;
+
+	return true;
+}
+
+bool ds3231_alarm_clear(ds3231_inst_t *inst, uint alarm) {
+	if (inst == NULL) return false;
+	if (alarm != 1 && alarm != 2) return false;
+
+	uint8_t data[2] = {DS3231_REG_CTRL_STATUS, 0x00};
+
+	if (!_ds3231_read_register(inst, &data[0], &data[1]))
+		return false;
+
+	data[1] &= ~alarm;
+
+	int rval = i2c_write_blocking(inst->i2c, DS3231_I2C_ADDRESS, data, 2, false);
+	if (rval == PICO_ERROR_GENERIC) return false;
+
+	return true;
+}
+
+bool ds3231_alarm_state(ds3231_inst_t *inst, uint alarm) {
+	if (inst == NULL) return false;
+	if (alarm != 1 && alarm != 2) return false;
+
+	uint8_t data[2] = {DS3231_REG_CTRL_STATUS, 0x00};
+
+	if (!_ds3231_read_register(inst, &data[0], &data[1]))
+		return false;
+
+	return data[1] & alarm;
+}
+
+static bool _ds3231_read_register(ds3231_inst_t *inst, uint8_t *reg, uint8_t *data) {
+	
+	int rval = i2c_write_blocking(inst->i2c, DS3231_I2C_ADDRESS, reg, 1, true);
+	if (rval == PICO_ERROR_GENERIC) return false;
+	rval = i2c_read_blocking(inst->i2c, DS3231_I2C_ADDRESS, data, 1, false);
+	if (rval == PICO_ERROR_GENERIC) return false;
+
+	return true;
+}
+
+void ds3231_datetime_print(ds3231_datetime_t *dt) {
+
+	printf("secs: %u\n", dt->seconds);
+	printf("mins: %u\n", dt->minutes);
+	printf("mode: %s\n", dt->hour_mode ? "24" : "12");
+	printf("hours: %u\n", dt->hours);
+	printf("day: %u\n", dt->day);
+	printf("date: %u\n", dt->date);
+	printf("century: %u\n", dt->century);
+	printf("month: %u\n", dt->month);
+	printf("year: %u\n", dt->year);
+	
+}
+
+void gpio_callback(uint gpio, uint32_t events) {
+	char event_str[128];
+	gpio_event_string(event_str, events);
+	printf("%d %s\n", gpio, event_str);
 }
 
 int main() {
@@ -194,13 +305,41 @@ int main() {
 
 	ds3231_inst_t *ds3231 = ds3231_create();
 	ds3231_init(ds3231, I2C_INSTANCE);
-	
+
 	ds3231_datetime_t dt;
+	ds3231_datetime_get(ds3231, &dt);
+	dt.minutes = 59;
+
+	ds3231_datetime_set(ds3231, &dt);
+	ds3231_alarm_irq_enable(ds3231, 1);
+
+	gpio_set_irq_enabled_with_callback(10, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+
+	uint count = 0;
+	bool reset = true;
 	for (;;) {
-		ds3231_datetime_get(ds3231, &dt);	
-		ds3231_datetime_set(ds3231, &dt);	
+
+		if (reset) {
+			//printf("Alarm! Resetting...\n");
+
+			ds3231_datetime_get(ds3231, &dt);
+
+			if (dt.minutes < 59)
+				dt.minutes += 1;
+			else
+				dt.minutes = 0;
+
+			ds3231_alarm1_set(ds3231, &dt, ALARM1_EVERY_SECOND);
+
+			ds3231_alarm_clear(ds3231, 1);
+			count = 0;
+			reset = false;
+		} else {
+			//printf("%u\n", ++count);
+		}
 
 		sleep_ms(500);
+		reset = ds3231_alarm_state(ds3231, 1);
 	}
     
     return 0;

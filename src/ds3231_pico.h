@@ -6,30 +6,30 @@
 #ifndef DS3231_PICO_H
 #define DS3231_PICO_H
 // Time
-#define DS3231_REG_SECS  	 	    0x00
-#define DS3231_REG_MINS  		    0x01
-#define DS3231_REG_HOUR  		    0x02
-#define DS3231_REG_DAY   		    0x03
-#define DS3231_REG_DATE  		    0x04
-#define DS3231_REG_MONTH  		    0x05
-#define DS3231_REG_YEAR  		    0x06
+#define DS3231_REG_SECS  	 	     0x00
+#define DS3231_REG_MINS  		     0x01
+#define DS3231_REG_HOUR  		     0x02
+#define DS3231_REG_DAY   		     0x03
+#define DS3231_REG_DATE  		     0x04
+#define DS3231_REG_MONTH  		     0x05
+#define DS3231_REG_YEAR  		     0x06
 // Alarm 1
-#define DS3231_REG_ALARM1_SECS      0x07
-#define DS3231_REG_ALARM1_MINS      0x08
-#define DS3231_REG_ALARM1_HOUR 	    0x09
-#define DS3231_REG_ALARM1_DAY_DATE  0x0A
+#define DS3231_REG_ALARM1_SECS       0x07
+#define DS3231_REG_ALARM1_MINS       0x08
+#define DS3231_REG_ALARM1_HOUR 	     0x09
+#define DS3231_REG_ALARM1_DAY_DATE   0x0A
 // Alarm 2
-#define DS3231_REG_ALRM2_MINS       0x0B
-#define DS3231_REG_ALRM2_HOUR       0x0C
-#define DS3231_REG_ALRM2_DAY_DATE   0x0D
+#define DS3231_REG_ALARM2_MINS       0x0B
+#define DS3231_REG_ALARM2_HOUR       0x0C
+#define DS3231_REG_ALARM2_DAY_DATE   0x0D
 // Other
-#define DS3231_REG_CTRL		        0x0E
-#define DS3231_REG_CTRL_STATUS      0x0F
-#define DS3231_REG_AGING_OFFSET     0x10
-#define DS3231_REG_TEMP_MSB		    0x11
-#define DS3231_REG_TEMP_LSB		    0x12
+#define DS3231_REG_CTRL		         0x0E
+#define DS3231_REG_CTRL_STATUS       0x0F
+#define DS3231_REG_AGING_OFFSET      0x10
+#define DS3231_REG_TEMP_MSB		     0x11
+#define DS3231_REG_TEMP_LSB		     0x12
 
-#define DS3231_I2C_ADDRESS 		    0x68
+#define DS3231_I2C_ADDRESS 		     0x68
 
 typedef enum hour_mode {
 	HOUR_MODE_24,
@@ -79,7 +79,12 @@ bool ds3231_datetime_set(ds3231_inst_t *inst, ds3231_datetime_t *dt);
 bool ds3231_alarm1_set(ds3231_inst_t *inst, ds3231_datetime_t *dt, alarm1_mode_t mode);
 bool ds3231_alarm2_set(ds3231_inst_t *inst, ds3231_datetime_t *dt, alarm2_mode_t mode);
 
-bool ds3231_alarm_enable(ds3231_inst_t *inst, uint alarm);
-bool ds3231_alarm_disable(ds3231_inst_t *inst, uint alarm);
+bool ds3231_alarm_irq_enable(ds3231_inst_t *inst, uint alarm);
+bool ds3231_alarm_irq_disable(ds3231_inst_t *inst, uint alarm);
+
+bool ds3231_alarm_clear(ds3231_inst_t *inst, uint alarm);
+bool ds3231_alarm_state(ds3231_inst_t *inst, uint alarm);
+
+void ds3231_datetime_print(ds3231_datetime_t *dt);
 
 #endif //DS3231_PICO_H
