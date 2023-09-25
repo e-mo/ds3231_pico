@@ -31,6 +31,9 @@
 
 #define DS3231_I2C_ADDRESS 		     0x68
 
+#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+
 typedef enum hour_mode {
 	HOUR_MODE_24,
 	HOUR_MODE_12
@@ -86,5 +89,6 @@ bool ds3231_alarm_clear(ds3231_inst_t *inst, uint alarm);
 bool ds3231_alarm_state(ds3231_inst_t *inst, uint alarm);
 
 void ds3231_datetime_print(ds3231_datetime_t *dt);
+int ds3231_datetime_compare(ds3231_datetime_t *a, ds3231_datetime_t *b);
 
 #endif //DS3231_PICO_H

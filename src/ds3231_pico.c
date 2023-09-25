@@ -39,7 +39,6 @@ void ds3231_destroy(ds3231_inst_t *inst) {
 
 bool ds3231_init(ds3231_inst_t *inst, i2c_inst_t *i2c) {
 	if (inst == NULL) return false;
-
 	inst->i2c = i2c;
 
 	return true;
@@ -96,7 +95,6 @@ bool ds3231_datetime_set(ds3231_inst_t *inst, ds3231_datetime_t *dt) {
 	}
 
 	data[3] |= (dt->hours % 10) | ((dt->hours / 10) << 4);
-
 	data[4] = dt->day;
 
 	data[5] |= (dt->date % 10) | ((dt->date / 10) << 4);
@@ -281,69 +279,98 @@ void ds3231_datetime_print(ds3231_datetime_t *dt) {
 	
 }
 
+int ds3231_datetime_compare(ds3231_datetime_t *a, ds3231_datetime_t *b) {
+
+	int compare = b->century - a->century;
+	if (compare) return compare;
+
+	compare = b->year - a->year;
+	if (compare) return compare;
+
+	compare = b->month - a->month;
+	if (compare) return compare;
+
+	compare = b->date - a->date;
+	if (compare) return compare;
+
+	compare = b->day - a->day;
+	if (compare) return compare;
+
+	compare = b->hours - a->hours;
+	if (compare) return compare;
+
+	compare = b->minutes - a->minutes;
+	if (compare) return compare;
+
+	return b->seconds - a->seconds;
+}
+
 void gpio_callback(uint gpio, uint32_t events) {
 	char event_str[128];
 	gpio_event_string(event_str, events);
 	printf("%d %s\n", gpio, event_str);
+	printf("gpio4: %u\n", gpio_get(4));
 }
 
-int main() {
-    // Set Picotool binary info
-    stdio_init_all(); // To be able to use printf
-					  
-	// Wait until usb serial is connected
-	while (!tud_cdc_connected()) { sleep_ms(100); };
-
-	// Initialize I2C
-	i2c_init(I2C_INSTANCE, 100 * 4000);	
-	gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
-	gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
-	gpio_pull_up(I2C_SDA_PIN);
-	gpio_pull_up(I2C_SCL_PIN);
-
-	uint8_t data[2] = {0x00};
-
-	ds3231_inst_t *ds3231 = ds3231_create();
-	ds3231_init(ds3231, I2C_INSTANCE);
-
-	ds3231_datetime_t dt;
-	ds3231_datetime_get(ds3231, &dt);
-	dt.minutes = 59;
-
-	ds3231_datetime_set(ds3231, &dt);
-	ds3231_alarm_irq_enable(ds3231, 1);
-
-	gpio_set_irq_enabled_with_callback(10, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
-
-	uint count = 0;
-	bool reset = true;
-	for (;;) {
-
-		if (reset) {
-			//printf("Alarm! Resetting...\n");
-
-			ds3231_datetime_get(ds3231, &dt);
-
-			if (dt.minutes < 59)
-				dt.minutes += 1;
-			else
-				dt.minutes = 0;
-
-			ds3231_alarm1_set(ds3231, &dt, ALARM1_EVERY_SECOND);
-
-			ds3231_alarm_clear(ds3231, 1);
-			count = 0;
-			reset = false;
-		} else {
-			//printf("%u\n", ++count);
-		}
-
-		sleep_ms(500);
-		reset = ds3231_alarm_state(ds3231, 1);
-	}
-    
-    return 0;
-}
+//int main() {
+//    // Set Picotool binary info
+//    stdio_init_all(); // To be able to use printf
+//					  
+//	// Wait until usb serial is connected
+//	while (!tud_cdc_connected()) { sleep_ms(100); };
+//
+//	// Initialize I2C
+//	i2c_init(I2C_INSTANCE, 100 * 4000);	
+//	gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
+//	gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
+//	gpio_pull_up(I2C_SDA_PIN);
+//	gpio_pull_up(I2C_SCL_PIN);
+//
+//	uint8_t data[2] = {0x00};
+//
+//	ds3231_inst_t *ds3231 = ds3231_create();
+//	ds3231_init(ds3231, I2C_INSTANCE);
+//
+//	ds3231_datetime_t dt;
+//	ds3231_datetime_get(ds3231, &dt);
+//	dt.minutes = 59;
+//
+//	ds3231_datetime_set(ds3231, &dt);
+//	ds3231_alarm_irq_enable(ds3231, 1);
+//
+//    gpio_init(4);
+//    gpio_set_dir(4, GPIO_IN);
+//	gpio_set_irq_enabled_with_callback(5, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+//
+//	uint count = 0;
+//	bool reset = true;
+//	for (;;) {
+//
+//		if (reset) {
+//			//printf("Alarm! Resetting...\n");
+//
+//			ds3231_datetime_get(ds3231, &dt);
+//
+//			if (dt.minutes < 59)
+//				dt.minutes += 1;
+//			else
+//				dt.minutes = 0;
+//
+//			ds3231_alarm1_set(ds3231, &dt, ALARM1_EVERY_SECOND);
+//
+//			ds3231_alarm_clear(ds3231, 1);
+//			count = 0;
+//			reset = false;
+//		} else {
+//			//printf("%u\n", ++count);
+//		}
+//
+//		sleep_ms(500);
+//		reset = ds3231_alarm_state(ds3231, 1);
+//	}
+//    
+//    return 0;
+//}
 
 static const char *gpio_irq_str[] = {
         "LEVEL_LOW",  // 0x1

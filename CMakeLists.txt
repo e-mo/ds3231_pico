@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(PICO_SDK_PATH "~/pico/pico-sdk")
 #set(PICO_SDK_PATH "~/pico/pico-extras")
 
-set(PICO_BOARD pico CACHE STRING "Board type")
+#set(PICO_BOARD pico CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
